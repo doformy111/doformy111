@@ -1,6 +1,7 @@
 package com.zhp.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.zhp.domain.dto.UserDto;
 import com.zhp.domain.entity.User;
 import com.zhp.domain.result.ResponseResult;
 
@@ -18,6 +19,11 @@ public interface UserService extends IService<User> {
     ResponseResult updateUserInfo(User user);
 
     ResponseResult register(User user);
+
+
+    ResponseResult getUserList(Integer pageNum, Integer pageSize, String userName, String phonenumber, String status);
+
+    ResponseResult addAdminUser(UserDto userDto);
 
 }
 

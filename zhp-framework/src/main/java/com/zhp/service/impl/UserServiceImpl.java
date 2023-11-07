@@ -2,14 +2,24 @@ package com.zhp.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zhp.Utils.BeanCopyUtils;
 import com.zhp.Utils.SecurityUtils;
+import com.zhp.domain.dto.UserDto;
+import com.zhp.domain.entity.Role;
+import com.zhp.domain.entity.UserRole;
 import com.zhp.domain.result.ResponseResult;
+import com.zhp.domain.vo.PageVo;
 import com.zhp.domain.vo.UserInfoVo;
+import com.zhp.domain.vo.adminVo.UserVo;
 import com.zhp.exception.SystemException;
 import com.zhp.mapper.UserMapper;
+import com.zhp.service.RoleService;
+import com.zhp.service.UserRoleService;
 import com.zhp.service.UserService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.zhp.enums.AppHttpCodeEnum;
@@ -17,6 +27,8 @@ import com.zhp.domain.entity.User;
 import org.springframework.util.StringUtils;
 
 import javax.annotation.Resource;
+import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * 用户表(User)表服务实现类
@@ -26,7 +38,8 @@ import javax.annotation.Resource;
  */
 @Service("userService")
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
-
+    @Autowired
+    private UserRoleService userRoleService;
 
     @Override
     public ResponseResult userInfo() {
@@ -74,6 +87,49 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         save(user);
         return ResponseResult.okResult();
     }
+
+    @Override
+    public ResponseResult getUserList(Integer pageNum, Integer pageSize, String userName, String phonenumber, String status) {
+      LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+      queryWrapper.like(StringUtils.hasText(userName),User::getUserName,userName);
+        queryWrapper.like(StringUtils.hasText(phonenumber),User::getPhonenumber,phonenumber);
+        queryWrapper.eq(StringUtils.hasText(status),User::getStatus,status);
+        Page<User> page = new Page<>(pageNum,pageSize);
+        page(page,queryWrapper);
+        List<UserVo> userVos = BeanCopyUtils.copyBeanList(page.getRecords(),UserVo.class);
+
+        return ResponseResult.okResult(new PageVo(userVos,page.getTotal()));
+    }
+
+    @Override
+    public ResponseResult addAdminUser(UserDto userDto) {
+        LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();
+        if(!StringUtils.hasText(userDto.getUserName())|| getBaseMapper().selectCount(queryWrapper.eq(User::getUserName,userDto.getUserName()))>0){
+            throw new SystemException(AppHttpCodeEnum.USERNAME_NOT_NULL);
+        }
+        if(!StringUtils.hasText(userDto.getPassword())){
+            throw new SystemException(AppHttpCodeEnum.PASSWORD_NOT_NULL);
+        }
+        if(!StringUtils.hasText(userDto.getEmail())|| getBaseMapper().selectCount(queryWrapper.eq(User::getEmail,userDto.getEmail()))>0){
+            throw new SystemException(AppHttpCodeEnum.EMAIL_EXIST);
+        }
+        if(!StringUtils.hasText(userDto.getNickName())){
+            throw new SystemException(AppHttpCodeEnum.NICKNAME_NOT_NULL);
+        } if(!StringUtils.hasText(userDto.getPhonenumber())|| getBaseMapper().selectCount(queryWrapper.eq(User::getPhonenumber,userDto.getPhonenumber()))>0){
+            throw new SystemException(AppHttpCodeEnum.PHONENUMBER_EXIST);
+        }
+        User user = BeanCopyUtils.copyBean(userDto,User.class);
+        user.setPassword(passwordEncoder.encode(userDto.getUserName()));
+        save(user);
+        List<UserRole> userRoles=userDto.getRoleIds().stream()
+                .map(id ->  new UserRole(user.getId(),Long.getLong(id)))
+                .collect(Collectors.toList());
+        userRoles.stream()
+                .map(userRole -> userRoleService.save(userRole));
+
+        return ResponseResult.okResult();
+    }
+
 
     private boolean userNameExist(String userName) {
         LambdaQueryWrapper<User> queryWrapper = new LambdaQueryWrapper<>();

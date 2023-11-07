@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.zhp.Utils.BeanCopyUtils;
 import com.zhp.contents.SystemConstants;
 import com.zhp.domain.entity.Comment;
+import com.zhp.domain.entity.User;
 import com.zhp.enums.AppHttpCodeEnum;
 import com.zhp.domain.result.ResponseResult;
 import com.zhp.domain.vo.CommentVo;
@@ -32,6 +33,7 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
     @Resource
     private UserService userService;
 
+
     @Override
     public ResponseResult commentList(String s, Long articleId, Integer pageNum, Integer pageSize) {
         LambdaQueryWrapper<Comment> wrapper = new LambdaQueryWrapper<>();
@@ -39,6 +41,9 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
             wrapper.eq(Comment::getRootId, -1);
             wrapper.eq(Comment::getType, s);
             wrapper.orderByDesc(Comment::getCreateTime);
+        List<Comment> comment = getBaseMapper().selectList(wrapper);
+        if (comment.isEmpty()){
+            return ResponseResult.okResult();}
         Page<Comment> page =new Page<>(pageNum,pageSize);
         page(page,wrapper);
         List<CommentVo> commentVoList = toComment(page.getRecords());
@@ -72,13 +77,21 @@ public class CommentServiceImpl extends ServiceImpl<CommentMapper,Comment> imple
 
     private List<CommentVo> toComment(List<Comment> list) {
             List<CommentVo> voList = BeanCopyUtils.copyBeanList(list, CommentVo.class);
-            for (CommentVo comentVos : voList
-            ) {
-                comentVos.setUsername(userService.getById(comentVos.getCreateBy()).getNickName());
-                if (comentVos.getToCommentUserId() != -1) {
-                    comentVos.setToCommentUserName(userService.getById(comentVos.getToCommentUserId()).getNickName());
-                }
-            }
+                voList.stream()
+                .forEach(commentVos -> {
+                    Long id = commentVos.getCreateBy();
+                    User user = userService.getById(id);
+                    if (user != null) {
+                        commentVos.setUsername(userService.getById(id).getNickName());
+                    } else {
+                       throw new SystemException(AppHttpCodeEnum.USER_NOT_FIND);
+                    }
+
+
+                    if (commentVos.getToCommentUserId() != -1) {
+                        commentVos.setToCommentUserName(userService.getById(commentVos.getToCommentUserId()).getNickName());
+                    }
+                });
             return  voList;
         }
 }

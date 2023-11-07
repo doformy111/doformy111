@@ -15,4 +15,10 @@ public class SystemConstants
     public static final String LINK_STATUS_NORMAL ="0" ;
     public static final String ARTICLE_COMMENT = "0";
     public static final String LINK_COMMENT = "1";
+    public static final String MENU = "C";
+    public static final String BUTTON = "M";
+    public static final String STATUS_NORMAL = "1";
+    public static final String ROLE_STATUS_NORMAL ="0" ;
+    public static Integer tag_STATUS_DRAFT;
+
 }
